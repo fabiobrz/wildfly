@@ -52,9 +52,11 @@ import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.test.categories.CommonCriteria;
 import org.jboss.as.test.integration.web.security.SecuredServlet;
+import org.jboss.as.test.integration.web.security.WebSecurityCommon;
 import org.jboss.security.JBossJSSESecurityDomain;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -116,11 +118,15 @@ public class WebSecurityCERTTestCase {
 
     @Test
     public void testClientCertSuccessfulAuth() throws Exception {
+        Assume.assumeFalse("This test is supposed to be executed only against legacy security configuration",
+                WebSecurityCommon.isElytron());
         makeCall("test client", 200);
     }
 
     @Test
     public void testClientCertUnsuccessfulAuth() throws Exception {
+        Assume.assumeFalse("This test is supposed to be executed only against legacy security configuration",
+                WebSecurityCommon.isElytron());
         makeCall("test client 2", 403);
     }
 
