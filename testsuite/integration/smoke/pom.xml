@@ -598,7 +598,6 @@
                 <dependency>
                     <groupId>org.wildfly.arquillian</groupId>
                     <artifactId>wildfly-arquillian-container-bootable</artifactId>
-                    <scope>test</scope>
                 </dependency>
             </dependencies>
             <build>
