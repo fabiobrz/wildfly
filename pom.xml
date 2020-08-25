@@ -8654,7 +8654,6 @@
                 <groupId>org.wildfly.arquillian</groupId>
                 <artifactId>wildfly-arquillian-container-managed</artifactId>
                 <version>${version.org.wildfly.arquillian}</version>
-                <scope>test</scope>
                 <exclusions>
                     <exclusion>
                         <groupId>org.jboss.sasl</groupId>
