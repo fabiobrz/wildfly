@@ -396,6 +396,37 @@
             </dependencies>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>com.internetitem</groupId>
+                        <artifactId>write-properties-file-maven-plugin</artifactId>
+                        <version>1.0.1</version>
+                        <executions>
+                            <execution>
+                                <id>generate-properties-file</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>write-properties-file</goal>
+                                </goals>
+                                <configuration>
+                                    <filename>wiremock-bootable-cli.properties</filename>
+                                    <properties>
+                                        <property>
+                                            <name>project.build.directory</name>
+                                            <value>${project.build.directory}</value>
+                                        </property>
+                                        <property>
+                                            <name>beansxml.path</name>
+                                            <value>${basedir}/beans.xml</value>
+                                        </property>
+                                        <property>
+                                            <name>basedir</name>
+                                            <value>${basedir}</value>
+                                        </property>
+                                    </properties>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <!-- Disable the standard copy-based provisioning -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -459,6 +490,7 @@
                                             <script-files>
                                                 <script>wiremock-bootable.cli</script>
                                             </script-files>
+                                            <properties-file>${project.build.outputDirectory}/wiremock-bootable-cli.properties</properties-file>
                                         </cli-session>
                                     </cli-sessions>
                                     <plugin-options>
@@ -494,6 +526,7 @@
                                 <install.dir>${project.build.directory}/wildfly</install.dir>
                                 <bootable.jar>${project.build.directory}/test-wildfly-rest-client.jar</bootable.jar>
                                 <arquillian.xml>arquillian-bootable.xml</arquillian.xml>
+                                <beansxml.path>${basedir}/beans.xml</beansxml.path>
                             </systemPropertyVariables>
                             <redirectTestOutputToFile>${testLogToFile}</redirectTestOutputToFile>
                             <classpathDependencyExcludes>
