@@ -321,6 +321,19 @@
             </build>
         </profile>
 
+        <!-- Test against bootable jar -->
+        <profile>
+            <id>bootablejar.profile</id>
+            <activation>
+                <property>
+                    <name>ts.bootable</name>
+                </property>
+            </activation>
+            <properties>
+                <version.org.wildfly.jar.plugin>2.0.0.Beta6</version.org.wildfly.jar.plugin>        
+            </properties>
+        </profile>
+
     </profiles>
 
 
