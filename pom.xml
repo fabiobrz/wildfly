@@ -9874,18 +9874,5 @@
                 <testsuite.ee.galleon.pack.version>${ee.maven.version}</testsuite.ee.galleon.pack.version>
             </properties>
         </profile>
-
-        <!-- Test against bootable jar -->
-        <profile>
-            <id>bootablejar.profile</id>
-            <activation>
-                <property>
-                    <name>ts.bootable</name>
-                </property>
-            </activation>
-            <properties>
-                <version.org.wildfly.arquillian>3.0.0.Beta3</version.org.wildfly.arquillian>
-            </properties>
-        </profile>
     </profiles>
 </project>
