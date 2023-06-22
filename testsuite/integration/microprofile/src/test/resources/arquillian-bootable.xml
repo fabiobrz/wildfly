@@ -8,7 +8,7 @@
         <configuration>
             <property name="installDir">${install.dir}</property>
             <property name="jarFile">${bootable.jar}</property>
-            <property name="javaVmArguments">${server.jvm.args}</property>
+            <property name="javaVmArguments">${server.jvm.args} -agentlib:jdwp=transport=dt_socket,address=8787,server=y,suspend=y</property>
             <property name="jbossArguments">${jboss.args}</property>
             <property name="allowConnectingToRunningServer">true</property>
             <property name="managementAddress">${node0:127.0.0.1}</property>
