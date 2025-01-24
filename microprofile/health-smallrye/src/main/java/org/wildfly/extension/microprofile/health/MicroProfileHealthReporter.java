@@ -8,6 +8,7 @@ package org.wildfly.extension.microprofile.health;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
@@ -27,7 +28,6 @@ public class MicroProfileHealthReporter {
     public static final String DOWN = "DOWN";
     public static final String UP = "UP";
     private final boolean globalDefaultProceduresDisabled;
-    private boolean deploymentDefaultProceduresDisabled = false;
     private final String defaultReadinessEmptyResponse;
     private final String defaultStartupEmptyResponse;
     private final Map<HealthCheck, ClassLoader> healthChecks = new HashMap<>();
@@ -40,17 +40,33 @@ public class MicroProfileHealthReporter {
     private final HealthCheck emptyDeploymentReadinessCheck;
     private final HealthCheck emptyDeploymentStartupCheck;
     private boolean userChecksProcessed = false;
+    private final AtomicReference<String> defaultProceduresDeactivatorReference = new AtomicReference<>();
 
-    public void registerDeploymentDefaultProceduresConfiguration(final String deploymentName, final boolean deploymentDefaultProceduresDisabled) {
-        if (deploymentDefaultProceduresDisabled && !globalDefaultProceduresDisabled) {
-            // Deployment-level setting is overriding the global setting
+    private boolean deploymentDefaultProceduresDisabled() {
+        return defaultProceduresDeactivatorReference.get() != null;
+    }
+
+    public void registerDeploymentDefaultProceduresConfiguration(final String deploymentName) {
+        // Only if not set already, so that the multiple deployments case is handled
+        if (!globalDefaultProceduresDisabled && !deploymentDefaultProceduresDisabled()) {
+            // Log: deployment-level setting is overriding the global setting
             MicroProfileHealthLogger.LOGGER.defaultProceduresDisabledByDeployment(deploymentName);
+            // set
+            this.defaultProceduresDeactivatorReference.compareAndSet(null, deploymentName);
         }
-        this.deploymentDefaultProceduresDisabled |= deploymentDefaultProceduresDisabled;
+    }
+
+    public void evalDeploymentDefaultProceduresConfigurationReset(final String deploymentName) {
+        // We remove the per-deployment configuration only if the input comes from the same deployment that set it
+        // to deal with the multi deployment use case.
+        if (deploymentDefaultProceduresDisabled() && defaultProceduresDeactivatorReference.get().equals(deploymentName)) {
+            MicroProfileHealthLogger.LOGGER.resetDefaultProceduresDisabledByDeployment(deploymentName);
+            this.defaultProceduresDeactivatorReference.set(null);
+        }
     }
 
     private boolean defaultProceduresShouldBeAdded() {
-        return !globalDefaultProceduresDisabled && !deploymentDefaultProceduresDisabled;
+        return !globalDefaultProceduresDisabled && !deploymentDefaultProceduresDisabled();
     }
 
     private static class EmptyDeploymentCheckStatus implements HealthCheck {
