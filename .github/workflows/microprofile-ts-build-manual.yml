@@ -1,0 +1,85 @@
+name: Manual Build and MicroProfile test suite execution
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'OS'
+        required: false
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - windows-latest
+      jdk-distribution:
+        description: 'JDK Distribution'
+        required: false
+        default: 'temurin'
+        type: choice
+        options:
+          - temurin
+          - semeru
+          - microsoft
+          - oracle
+          - zulu
+          - corretto
+          - liberica
+      jdk-version:
+        description: 'JDK Version'
+        required: true
+        type: string
+      timeout:
+        description: 'Job Timeout Minutes'
+        required: false
+        default: 120
+        type: number
+      mp-ts-repo:
+        description: 'The MicroProfile test suite repository that will be used to execute the tests'
+        required: false
+        default: "jboss-eap-qe/eap-microprofile-test-suite"
+        type: string
+      mp-ts-ref:
+        description: 'The MicroProfile test suite branch that will be used to execute the tests'
+        required: false
+        default: "master"
+        type: string
+
+# Only run the latest job
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build WildFly and run the Microprofile test suite
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ inputs.jdk-distribution }} ${{ inputs.jdk-version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.jdk-version }}
+          cache: 'maven'
+      - name: Build WildFly to pro-fetch dependencies
+        run: mvn -U -B -ntp clean install -DskipTests
+      - name: (Ubuntu) Set the environment variable storing WildFly version
+        if: ${{ inputs.OS == 'ubuntu-latest' }}
+        run: |
+          echo "WILDFLY_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_ENV"
+      - name: (Windows) Set the environment variable storing WildFly version
+        if: ${{ inputs.OS == 'windows-latest' }}
+        run: |
+          echo "WILDFLY_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Checkout the MicroProfile test suite
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.mp-ts-repo }}
+          ref: ${{ inputs.mp-ts-ref }}
+          path: 'local-mp-ts'
+      - name: Run the MicroProfile test suite
+        run: cd local-mp-ts ; mvn -U -B clean verify -Djboss.dist=../dist/target/wildfly-$WILDFLY_VERSION
