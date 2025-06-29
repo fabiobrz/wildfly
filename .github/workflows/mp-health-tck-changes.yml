@@ -1,0 +1,87 @@
+name: MicroProfile test suite - Manual Build and Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      mp-health-repo:
+        description: 'The microprofile-health repository that will be used to build the snapshot from'
+        required: true
+        default: "microprofile/microprofile-health"
+        type: string
+      mp-health-ref:
+        description: 'The microprofile-health repository branch that will be used to build the snapshot from'
+        required: true
+        type: string
+      os:
+        description: 'OS'
+        required: false
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+      jdk-distribution:
+        description: 'JDK Distribution'
+        required: false
+        default: 'temurin'
+        type: choice
+        options:
+          - temurin
+          - semeru
+          - microsoft
+          - oracle
+          - zulu
+          - corretto
+          - liberica
+      jdk-version:
+        description: 'JDK Version'
+        default: '21'
+        required: true
+        type: string
+      timeout:
+        description: 'Job Timeout Minutes'
+        required: false
+        default: 120
+        type: number
+
+# Only run the latest job
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build a microprofile-health snapshot and run the TCKs in WildFly
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ inputs.jdk-distribution }} ${{ inputs.jdk-version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.jdk-version }}
+          cache: 'maven'
+      - name: Checkout microprofile-health
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.mp-health-repo }}
+          ref: ${{ inputs.mp-health-ref }}
+          path: 'mp-health'
+      - name: Build microprofile-health
+        run: |
+          cd mp-health
+          mvn clean install
+      - name: Set the value for the ENV VAR that stores the microprofile-health version
+        run: |
+          echo "MAVEN_ARGS_MP_HEALTH_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout -f pom.xml)" >> "$GITHUB_ENV"
+      - name: Build WildFly with Maven
+        run: |
+          cd ..
+          mvn -U -B -ntp clean install -Dversion.org.eclipse.microprofile.health.api=${{ env.MAVEN_ARGS_MP_HEALTH_VERSION }} -DskipTests
+      - name: Run the microprofile-health TCK in WildFly
+        run: |
+          cd testsuite/integration/microprofile-tck/health/
+          mvn test -Dversion.org.eclipse.microprofile.health.api=${{ env.MAVEN_ARGS_MP_HEALTH_VERSION }}
