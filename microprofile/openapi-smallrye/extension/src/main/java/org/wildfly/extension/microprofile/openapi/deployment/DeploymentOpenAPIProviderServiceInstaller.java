@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -28,6 +29,8 @@ import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
+import org.eclipse.microprofile.openapi.models.PathItem;
+import org.eclipse.microprofile.openapi.models.Paths;
 import org.eclipse.microprofile.openapi.models.info.Info;
 import org.eclipse.microprofile.openapi.models.servers.Server;
 import org.jboss.as.network.ClientMapping;
@@ -129,45 +132,55 @@ public class DeploymentOpenAPIProviderServiceInstaller implements DeploymentServ
                                     LOGGER.requiredListenersNotFound(host.get().getServer().getName(), REQUISITE_LISTENERS);
                                 }
 
-                                if (model.getServers() == null) {
-                                    // Generate Server entries if none exist
-                                    String contextPath = deploymentInfo.get().getContextPath();
-                                    if (useRelativeServerURLs) {
-                                        model.setServers(List.of(OASFactory.createServer().url(contextPath)));
-                                    } else {
-                                        int aliases = host.get().getAllAliases().size();
-                                        int size = 0;
-                                        for (UndertowListener listener : listeners) {
-                                            size += aliases + listener.getSocketBinding().getClientMappings().size();
-                                        }
-                                        List<Server> servers = new ArrayList<>(size);
-                                        for (UndertowListener listener : listeners) {
-                                            SocketBinding binding = listener.getSocketBinding();
-                                            Set<String> virtualHosts = new TreeSet<>(host.get().getAllAliases());
-                                            // The name of the host is not a real virtual host (e.g. default-host)
-                                            virtualHosts.remove(host.get().getName());
-
-                                            InetAddress address = binding.getAddress();
-                                            // Omit wildcard addresses
-                                            if (!address.isAnyLocalAddress()) {
-                                                virtualHosts.add(address.getCanonicalHostName());
-                                            }
-
-                                            for (String virtualHost : virtualHosts) {
-                                                Server server = createServer(listener.getProtocol(), virtualHost, binding.getPort(), contextPath);
-                                                if (server != null) {
-                                                    servers.add(server);
-                                                }
-                                            }
-                                            for (ClientMapping mapping : binding.getClientMappings()) {
-                                                Server server = createServer(listener.getProtocol(), mapping.getDestinationAddress(), mapping.getDestinationPort(), contextPath);
-                                                if (server != null) {
-                                                    servers.add(server);
-                                                }
+                                String contextPath = deploymentInfo.get().getContextPath();
+                                // If this application is not deployed to the root context, we need to append the context path to all service paths.
+                                // This ensures that multiple applications sharing the same virtual host can document services with the same path without colliding.
+                                if (contextPath.length() > 1) {
+                                    Paths paths = model.getPaths();
+                                    if (paths != null) {
+                                        Map<String, PathItem> items = paths.getPathItems();
+                                        if ((items != null) && !items.isEmpty()) {
+                                            for (Map.Entry<String, PathItem> entry : items.entrySet()) {
+                                                paths.removePathItem(entry.getKey());
+                                                paths.addPathItem(contextPath + entry.getKey(), entry.getValue());
                                             }
                                         }
-                                        model.setServers(servers);
                                     }
+                                }
+                                // Generate Server entries if none exist
+                                if ((model.getServers() == null) && !useRelativeServerURLs) {
+                                    int aliases = host.get().getAllAliases().size();
+                                    int size = 0;
+                                    for (UndertowListener listener : listeners) {
+                                        size += aliases + listener.getSocketBinding().getClientMappings().size();
+                                    }
+                                    List<Server> servers = new ArrayList<>(size);
+                                    for (UndertowListener listener : listeners) {
+                                        SocketBinding binding = listener.getSocketBinding();
+                                        Set<String> virtualHosts = new TreeSet<>(host.get().getAllAliases());
+                                        // The name of the host is not a real virtual host (e.g. default-host)
+                                        virtualHosts.remove(host.get().getName());
+
+                                        InetAddress address = binding.getAddress();
+                                        // Omit wildcard addresses
+                                        if (!address.isAnyLocalAddress()) {
+                                            virtualHosts.add(address.getCanonicalHostName());
+                                        }
+
+                                        for (String virtualHost : virtualHosts) {
+                                            Server server = createServer(listener.getProtocol(), virtualHost, binding.getPort());
+                                            if (server != null) {
+                                                servers.add(server);
+                                            }
+                                        }
+                                        for (ClientMapping mapping : binding.getClientMappings()) {
+                                            Server server = createServer(listener.getProtocol(), mapping.getDestinationAddress(), mapping.getDestinationPort());
+                                            if (server != null) {
+                                                servers.add(server);
+                                            }
+                                        }
+                                    }
+                                    model.setServers(servers);
                                 }
                             }
                         }).build().model();
@@ -181,11 +194,11 @@ public class DeploymentOpenAPIProviderServiceInstaller implements DeploymentServ
                 .install(context);
     }
 
-    private static Server createServer(String protocol, String host, int port, String path) {
+    private static Server createServer(String protocol, String host, int port) {
         try {
-            URL url = new URL(protocol, host, port, path);
+            URL url = new URL(protocol, host, port, "");
             if (port == url.getDefaultPort()) {
-                url = new URL(protocol, host, path);
+                url = new URL(protocol, host, "");
             }
             return OASFactory.createServer().url(url.toString());
         } catch (MalformedURLException e) {
