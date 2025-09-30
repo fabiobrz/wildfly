@@ -85,4 +85,4 @@ jobs:
       - name: Run the MicroProfile test suite with Maven
         run: |
           cd mp-ts
-          mvn clean verify --batch-mode -fae  ${{ env.MAVEN_ARGS_WILDFLY_DIST_LOCATION }} ${{ env.MAVEN_ARGS_WILDFLY_DIST_VERSION }}
+          mvn clean verify --batch-mode -fae  ${{ env.MAVEN_ARGS_WILDFLY_DIST_LOCATION }} ${{ env.MAVEN_ARGS_WILDFLY_DIST_VERSION }} -pl microprofile-open-api -Dtest=*Hybrid* -am -Dsurefire.failIfNoSpecifiedTests=false
