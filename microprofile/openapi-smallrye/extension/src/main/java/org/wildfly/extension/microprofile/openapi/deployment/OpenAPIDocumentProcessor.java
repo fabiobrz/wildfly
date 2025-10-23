@@ -31,10 +31,12 @@ import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.annotation.CompositeIndex;
 import org.jboss.msc.service.DuplicateServiceException;
 import org.wildfly.extension.microprofile.openapi.logging.MicroProfileOpenAPILogger;
+import org.wildfly.extension.undertow.UndertowService;
+import org.wildfly.extension.undertow.deployment.UndertowDeploymentInfoService;
 import org.wildfly.microprofile.openapi.OpenAPIModelConfiguration;
-import org.wildfly.microprofile.openapi.OpenAPIProvider;
-import org.wildfly.microprofile.openapi.OpenAPIRegistry;
-import org.wildfly.microprofile.openapi.OpenAPIRegistry.Registration;
+import org.wildfly.microprofile.openapi.OpenAPIModelProvider;
+import org.wildfly.microprofile.openapi.OpenAPIModelRegistry;
+import org.wildfly.microprofile.openapi.OpenAPIModelRegistry.Registration;
 import org.wildfly.microprofile.openapi.host.HostOpenAPIModelConfiguration;
 import org.wildfly.microprofile.openapi.host.OpenAPIHttpHandlerServiceInstaller;
 import org.wildfly.service.Installer.StartWhen;
@@ -42,6 +44,7 @@ import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
 
 import io.smallrye.openapi.api.OpenApiConfig;
+import io.undertow.servlet.api.DeploymentInfo;
 
 /**
  * Processes the OpenAPI model for a deployment.
@@ -112,11 +115,13 @@ public class OpenAPIDocumentProcessor implements DeploymentUnitProcessor {
                             String serverName = configuration.getServerName();
                             String hostName = configuration.getHostName();
                             String modelName = configuration.getModelName();
-                            ServiceDependency<OpenAPIRegistry.Registration> registration = ServiceDependency.on(OpenAPIRegistry.SERVICE_DESCRIPTOR, serverName, hostName).combine(ServiceDependency.on(OpenAPIProvider.SERVICE_DESCRIPTOR, serverName, hostName, modelName), new BiFunction<>() {
+                            ServiceDependency<DeploymentInfo> deployment = ServiceDependency.on(UndertowService.deploymentServiceName(unit.getServiceName()).append(UndertowDeploymentInfoService.SERVICE_NAME));
+                            ServiceDependency<OpenAPIModelRegistry.Registration> registration = ServiceDependency.on(OpenAPIModelRegistry.SERVICE_DESCRIPTOR, serverName, hostName).combine(ServiceDependency.on(OpenAPIModelProvider.SERVICE_DESCRIPTOR, serverName, hostName, modelName), new BiFunction<>() {
                                 @Override
-                                public Registration apply(OpenAPIRegistry registry, OpenAPIProvider provider) {
-                                    OpenAPI model = provider.get();
-                                    Registration registration = registry.register(modelName, model);
+                                public Registration apply(OpenAPIModelRegistry registry, OpenAPIModelProvider provider) {
+                                    OpenAPI model = provider.getModel();
+                                    String contextName = deployment.get().getContextPath().replace("/", "");
+                                    Registration registration = registry.register(contextName, model);
                                     Map<String, OpenAPI> models = registry.getModels();
                                     if (models.size() > 1) {
                                         // Detect and log any host property conflicts
@@ -138,8 +143,9 @@ public class OpenAPIDocumentProcessor implements DeploymentUnitProcessor {
                                 }
                             });
                             ServiceInstaller.builder(registration)
+                                    .requires(deployment)
                                     .startWhen(StartWhen.INSTALLED)
-                                    .onStop(OpenAPIRegistry.Registration::close)
+                                    .onStop(OpenAPIModelRegistry.Registration::close)
                                     .build()
                                     .install(context);
                         }

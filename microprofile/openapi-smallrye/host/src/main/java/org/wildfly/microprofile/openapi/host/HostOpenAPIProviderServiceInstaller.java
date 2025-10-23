@@ -21,8 +21,8 @@ import org.jboss.as.controller.ServiceNameFactory;
 import org.wildfly.common.function.Functions;
 import org.wildfly.extension.undertow.Host;
 import org.wildfly.microprofile.openapi.OpenAPIModelConfiguration;
-import org.wildfly.microprofile.openapi.OpenAPIProvider;
-import org.wildfly.microprofile.openapi.OpenAPIRegistry;
+import org.wildfly.microprofile.openapi.OpenAPIModelProvider;
+import org.wildfly.microprofile.openapi.OpenAPIModelRegistry;
 import org.wildfly.subsystem.service.ResourceServiceInstaller;
 import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
@@ -72,8 +72,9 @@ public class HostOpenAPIProviderServiceInstaller implements ResourceServiceInsta
                         .version(this.getHostPropertyValue(OpenAPIModelConfiguration.INFO_VERSION))
                         );
                 model.setOpenapi(this.getHostPropertyValue(OpenAPIModelConfiguration.VERSION, SmallRyeOASConfig.Defaults.VERSION));
+                String format = this.getHostPropertyValue(OpenAPIModelConfiguration.FORMAT, OpenAPIModelConfiguration.DEFAULT_FORMAT);
 
-                return new CompositeOpenAPIProvider(model);
+                return new CompositeOpenAPIProvider(model, (name, key) -> String.format(format, name, key));
             }
 
             private String getHostPropertyValue(String propertyName) {
@@ -85,8 +86,8 @@ public class HostOpenAPIProviderServiceInstaller implements ResourceServiceInsta
             }
         };
         return ServiceInstaller.builder(factory)
-                .provides(ServiceNameFactory.resolveServiceName(OpenAPIProvider.DEFAULT_SERVICE_DESCRIPTOR, serverName, hostName))
-                .provides(ServiceNameFactory.resolveServiceName(OpenAPIRegistry.SERVICE_DESCRIPTOR, serverName, hostName))
+                .provides(ServiceNameFactory.resolveServiceName(OpenAPIModelProvider.DEFAULT_SERVICE_DESCRIPTOR, serverName, hostName))
+                .provides(ServiceNameFactory.resolveServiceName(OpenAPIModelRegistry.SERVICE_DESCRIPTOR, serverName, hostName))
                 .requires(List.of(host))
                 .build()
                 .install(context);

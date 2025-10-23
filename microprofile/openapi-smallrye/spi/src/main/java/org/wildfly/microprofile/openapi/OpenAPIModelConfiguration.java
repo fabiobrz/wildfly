@@ -34,6 +34,8 @@ public interface OpenAPIModelConfiguration extends OpenAPIEndpointConfiguration 
     String INFO_LICENSE_IDENTIFIER = SmallRyeOASConfig.INFO_LICENSE_IDENTIFIER.substring(SMALLRYE_PREFIX.length());
     String INFO_LICENSE_NAME = SmallRyeOASConfig.INFO_LICENSE_NAME.substring(SMALLRYE_PREFIX.length());
     String INFO_LICENSE_URL = SmallRyeOASConfig.INFO_LICENSE_URL.substring(SMALLRYE_PREFIX.length());
+    String FORMAT = "format";
+    String DEFAULT_FORMAT = "%1$s%2$s";
 
     /**
      * Returns the name of this model, or null, if this the default model.
