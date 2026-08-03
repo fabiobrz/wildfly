@@ -56,6 +56,12 @@ class WSSubsystemAdd extends AbstractBoottimeAddStepHandler {
     protected void performBoottime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
         WSLogger.ROOT_LOGGER.activatingWebservicesExtension();
         ModuleClassLoaderProvider.register();
+
+        // CXF 4.1.8+ blocks decoupled WS-Addressing destinations by default (SSRF hardening).
+        // Re-enable for backward compatibility with existing deployments.
+        if (System.getProperty("org.apache.cxf.ws.addressing.decoupled.enabled") == null) {
+            System.setProperty("org.apache.cxf.ws.addressing.decoupled.enabled", "true");
+        }
         final boolean appclient = context.getProcessType() == ProcessType.APPLICATION_CLIENT;
 
         context.addStep(new AbstractDeploymentChainStep() {
